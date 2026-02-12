@@ -38,14 +38,16 @@ public final class FoDReleaseAssessmentTypeHelper {
     private static final Logger LOG = LoggerFactory.getLogger(FoDReleaseAssessmentTypeHelper.class);
     @Getter
     private static final ObjectMapper objectMapper = new ObjectMapper();
-    private FoDReleaseAssessmentTypeHelper() {}
+
+    private FoDReleaseAssessmentTypeHelper() {
+    }
 
     public static final FoDReleaseAssessmentTypeDescriptor[] getAssessmentTypes(UnirestInstance unirestInstance,
-                                                                        String relId,
-                                                                        FoDScanType scanType,
-                                                                        FoDEnums.EntitlementFrequencyType entitlementFrequencyType,
-                                                                        Boolean isRemediation,
-                                                                        boolean failIfNotFound) {
+            String relId,
+            FoDScanType scanType,
+            FoDEnums.EntitlementFrequencyType entitlementFrequencyType,
+            Boolean isRemediation,
+            boolean failIfNotFound) {
         GetRequest request = unirestInstance.get(FoDUrls.RELEASE + "/assessment-types")
                 .routeParam("relId", relId)
                 .queryString("scanType", scanType.name())
@@ -56,12 +58,15 @@ public final class FoDReleaseAssessmentTypeHelper {
         if (failIfNotFound && assessmentTypes.size() == 0) {
             throw new FcliSimpleException("No assessment types found for release id: " + relId);
         }
-        return JsonHelper.treeToValue(assessmentTypes, FoDReleaseAssessmentTypeDescriptor[].class);
+        return Arrays.stream(JsonHelper.treeToValue(assessmentTypes, FoDReleaseAssessmentTypeDescriptor[].class))
+                .filter(at -> at.getFrequencyType().equals(entitlementFrequencyType.name()))
+                .filter(at -> at.getIsRemediation().equals(isRemediation))
+                .toArray(FoDReleaseAssessmentTypeDescriptor[]::new);
     }
 
     public static final FoDReleaseAssessmentTypeDescriptor getAssessmentTypeDescriptor(
-        UnirestInstance unirest, String relId, 
-        FoDScanType scanType, EntitlementFrequencyType entFreqType, String assessmentType) {
+            UnirestInstance unirest, String relId,
+            FoDScanType scanType, EntitlementFrequencyType entFreqType, String assessmentType) {
         // support both assessment type id and name
         Predicate<FoDReleaseAssessmentTypeDescriptor> predicate;
         try {
@@ -71,14 +76,15 @@ public final class FoDReleaseAssessmentTypeHelper {
             predicate = n -> n.getName().equals(assessmentType);
         }
         return Arrays.stream(FoDReleaseAssessmentTypeHelper.getAssessmentTypes(
-                    unirest, relId, scanType, entFreqType, false, true))
+                unirest, relId, scanType, entFreqType, false, true))
                 .filter(predicate)
                 .findFirst()
                 .orElseThrow(() -> new FcliSimpleException(
-                    "Cannot find appropriate assessment type for specified options."));
+                        "Cannot find appropriate assessment type for specified options."));
     }
 
-    // This method has caused issues if enforced (#682) so we are just using it for logging for now
+    // This method has caused issues if enforced (#682) so we are just using it for
+    // logging for now
     public final static boolean validateEntitlementCanBeUsed(String relId, FoDReleaseAssessmentTypeDescriptor atd) {
         if (atd == null || atd.getAssessmentTypeId() == null || atd.getAssessmentTypeId() <= 0) {
             throw new FcliSimpleException("Invalid or empty FODAssessmentTypeDescriptor.");

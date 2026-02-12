@@ -29,15 +29,19 @@ import picocli.CommandLine.Option;
 
 @Command(name = OutputHelperMixins.Start.CMD_NAME)
 public class FoDDastAutomatedScanStartCommand extends AbstractFoDScanStartCommand {
-    @Getter @Mixin private OutputHelperMixins.Start outputHelper;
+    @Getter
+    @Mixin
+    private OutputHelperMixins.Start outputHelper;
 
-    @Mixin private FoDInProgressScanActionTypeMixins.DefaultOption inProgressScanActionType;
-    @Option(names="--wait-interval", descriptionKey = "fcli.fod.scan.wait-interval", defaultValue = "10", required = false)
+    @Mixin
+    private FoDInProgressScanActionTypeMixins.DefaultOption inProgressScanActionType;
+    @Option(names = "--wait-interval", descriptionKey = "fcli.fod.scan.wait-interval", defaultValue = "10", required = false)
     private Integer waitInterval;
-    @Option(names="--max-attempts", descriptionKey = "fcli.fod.scan.max-attempts", defaultValue = "30", required = false)
+    @Option(names = "--max-attempts", descriptionKey = "fcli.fod.scan.max-attempts", defaultValue = "30", required = false)
     private Integer maxAttempts;
 
-    @Mixin private ProgressWriterFactoryMixin progressWriterFactory;
+    @Mixin
+    private ProgressWriterFactoryMixin progressWriterFactory;
 
     private String scanAction = "STARTED";
 
@@ -47,8 +51,9 @@ public class FoDDastAutomatedScanStartCommand extends AbstractFoDScanStartComman
 
         try (var progressWriter = progressWriterFactory.create()) {
 
-            // get current setup to ensure the scan has been configured
-            FoDScanDastAutomatedHelper.getSetupDescriptor(unirest, relId);
+            // get current setup and auto-correct entitlement if invalid/expired
+            var currentSetup = FoDScanDastAutomatedHelper.getSetupDescriptor(unirest, relId);
+            FoDScanDastAutomatedHelper.autoCorrectEntitlementIfNeeded(unirest, releaseDescriptor, currentSetup);
 
             // check if scan is already in progress
             FoDScanDescriptor scan = FoDScanDastAutomatedHelper.handleInProgressScan(unirest, releaseDescriptor,
@@ -56,7 +61,8 @@ public class FoDDastAutomatedScanStartCommand extends AbstractFoDScanStartComman
                     waitInterval);
 
             if (scan != null && scan.getAnalysisStatusType().equals("In_Progress")) {
-                if (inProgressScanActionType.getInProgressScanActionType() == FoDEnums.InProgressScanActionType.DoNotStartScan) {
+                if (inProgressScanActionType
+                        .getInProgressScanActionType() == FoDEnums.InProgressScanActionType.DoNotStartScan) {
                     scanAction = "NOT_STARTED_SCAN_IN_PROGRESS";
                     return scan;
                 }

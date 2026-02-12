@@ -49,12 +49,11 @@ public class FoDScanHelper {
 
     private static final Logger LOG = LoggerFactory.getLogger(FoDScanHelper.class);
 
-
     // max retention period (in years) of FPRs
     public static int MAX_RETENTION_PERIOD = 2;
 
     public static final JsonNode renameFields(JsonNode record, FoDScanType scanType) {
-        var obj = (ObjectNode)new RenameFieldsTransformer(new String[] {
+        var obj = (ObjectNode) new RenameFieldsTransformer(new String[] {
                 "ScanId:scanId",
                 "AnalysisStatusId:analysisStatusTypeId",
                 "AnalysisStatusTypeValue:analysisStatusType",
@@ -70,8 +69,11 @@ public class FoDScanHelper {
         }
         return obj;
     }
-    public static final FoDScanDescriptor getScanDescriptor(UnirestInstance unirest, String releaseQualifiedScanOrId, String delimiter) {
-        String[] elts = (delimiter != null) ? releaseQualifiedScanOrId.split(delimiter) : new String[]{releaseQualifiedScanOrId};
+
+    public static final FoDScanDescriptor getScanDescriptor(UnirestInstance unirest, String releaseQualifiedScanOrId,
+            String delimiter) {
+        String[] elts = (delimiter != null) ? releaseQualifiedScanOrId.split(delimiter)
+                : new String[] { releaseQualifiedScanOrId };
         switch (elts.length) {
             case 2:
                 var pollingResult = unirest.get(FoDUrls.SCAN_POLLING_SUMMARY)
@@ -87,20 +89,20 @@ public class FoDScanHelper {
                         .getBody();
                 return getDescriptor(summaryResult);
             default:
-                throw new FcliSimpleException("Scan must be specified in the format <release id>" + delimiter + "<scan id> or <scan id>");
+                throw new FcliSimpleException(
+                        "Scan must be specified in the format <release id>" + delimiter + "<scan id> or <scan id>");
         }
     }
 
     public static final FoDScanDescriptor getLatestScanDescriptor(UnirestInstance unirest, String relId,
-                                                                FoDScanType scanType,
-                                                                boolean latestById) {
+            FoDScanType scanType,
+            boolean latestById) {
         String queryField = (latestById ? "scanId" : "startedDateTime");
         Optional<JsonNode> latestScan = JsonHelper.stream(
-                        (ArrayNode) unirest.get(FoDUrls.RELEASE_SCANS).routeParam("relId", relId)
-                                .queryString("orderBy", queryField)
-                                .queryString("orderByDirection", "DESC")
-                                .asObject(JsonNode.class).getBody().get("items")
-                )
+                (ArrayNode) unirest.get(FoDUrls.RELEASE_SCANS).routeParam("relId", relId)
+                        .queryString("orderBy", queryField)
+                        .queryString("orderByDirection", "DESC")
+                        .asObject(JsonNode.class).getBody().get("items"))
                 .filter(n -> n.get("scanType").asText().equals(scanType.name()))
                 .filter(not(n -> n.get("analysisStatusType").asText().equals("In_Progress")))
                 .findFirst();
@@ -128,13 +130,16 @@ public class FoDScanHelper {
         if (scanDescriptor.getCompletedDateTime() == null ||
                 scanDescriptor.getCompletedDateTime().before(cal.getTime())) {
             throw new FcliSimpleException(
-                    String.format("The last scan date was over %d years ago and results are no longer available to be downloaded.", retentionPeriod));
+                    String.format(
+                            "The last scan date was over %d years ago and results are no longer available to be downloaded.",
+                            retentionPeriod));
         }
     }
 
-    public static FoDScanAssessmentTypeDescriptor getEntitlementToUse(UnirestInstance unirest, String relId, FoDScanType scanType,
-                                                                    String assessmentType, FoDEnums.EntitlementFrequencyType entitlementFrequencyType,
-                                                                    int entitlementId) {
+    public static FoDScanAssessmentTypeDescriptor getEntitlementToUse(UnirestInstance unirest, String relId,
+            FoDScanType scanType,
+            String assessmentType, FoDEnums.EntitlementFrequencyType entitlementFrequencyType,
+            int entitlementId) {
         FoDScanConfigDastAutomatedDescriptor currentSetup = null;
         try {
             currentSetup = FoDScanDastAutomatedHelper.getSetupDescriptor(unirest, relId);
@@ -146,20 +151,23 @@ public class FoDScanHelper {
         Integer assessmentTypeId = 0;
         LOG.info("Finding/Validating entitlement to use.");
 
-        var atd = FoDReleaseAssessmentTypeHelper.getAssessmentTypeDescriptor(unirest, relId, scanType, 
-            entitlementFrequencyType, assessmentType);
+        var atd = FoDReleaseAssessmentTypeHelper.getAssessmentTypeDescriptor(unirest, relId, scanType,
+                entitlementFrequencyType, assessmentType);
         assessmentTypeId = atd.getAssessmentTypeId();
         entitlementIdToUse = atd.getEntitlementId();
 
-        // validate entitlement specified or currently in use against assessment type found
+        // validate entitlement specified or currently in use against assessment type
+        // found
         if (entitlementId > 0) {
             // check if "entitlement id" explicitly matches what has been found
             if (!Objects.equals(entitlementIdToUse, entitlementId)) {
-                throw new FcliSimpleException("Cannot find appropriate assessment type for use with entitlement: " + entitlementId);
+                throw new FcliSimpleException(
+                        "Cannot find appropriate assessment type for use with entitlement: " + entitlementId);
             }
             LOG.info("The 'entitlement-id' specified by user '" + entitlementId + "' is valid.");
         } else {
-            if (currentSetup != null && (currentSetup.getEntitlementId() != null && currentSetup.getEntitlementId() > 0)) {
+            if (currentSetup != null
+                    && (currentSetup.getEntitlementId() != null && currentSetup.getEntitlementId() > 0)) {
                 // check if "entitlement id" is already configured
                 if (!Objects.equals(entitlementIdToUse, currentSetup.getEntitlementId())) {
                     LOG.warn("Changing current release entitlement from '" + currentSetup.getEntitlementId() + "'.");
@@ -177,7 +185,9 @@ public class FoDScanHelper {
 
         return FoDScanAssessmentTypeDescriptor.builder()
                 .assessmentTypeId(assessmentTypeId)
-                .frequencyType(String.valueOf(FoDEnums.EntitlementFrequencyType.Subscription))
+                .name(atd.getName())
+                .frequencyType(atd.getFrequencyType())
+                .frequencyTypeId(atd.getFrequencyTypeId())
                 .entitlementId(entitlementIdToUse)
                 .build();
     }
