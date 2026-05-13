@@ -12,6 +12,8 @@
  */
 package com.fortify.cli.license.ncd_report.collector;
 
+import java.time.OffsetDateTime;
+
 import com.fortify.cli.common.progress.helper.IProgressWriterI18n;
 import com.fortify.cli.common.report.collector.IReportContext;
 import com.fortify.cli.common.report.logger.IReportLogger;
@@ -27,10 +29,12 @@ import lombok.SneakyThrows;
 import lombok.experimental.Accessors;
 
 /**
- * This class is the primary entry point for collecting and outputting report data.
+ * This class is the primary entry point for collecting and outputting report
+ * data.
  * An instance of this class is created by the {@link NcdReportCreateCommand}
- * and passed to the source-specific generators. Source-specific generators can use
- * this class to access the {@link IReportLogger} and 
+ * and passed to the source-specific generators. Source-specific generators can
+ * use
+ * this class to access the {@link IReportLogger} and
  * {@link NcdReportRepositoryProcessor} instances.
  * 
  * @author rsenden
@@ -38,36 +42,45 @@ import lombok.experimental.Accessors;
  */
 @Accessors(fluent = true)
 public final class NcdReportContext implements IReportContext {
-    @Getter private final NcdReportConfig reportConfig;
-    @Getter private final IProgressWriterI18n progressWriter;
-    @Getter private final UnirestContext unirestContext;
+    @Getter
+    private final NcdReportConfig reportConfig;
+    @Getter
+    private final IProgressWriterI18n progressWriter;
+    @Getter
+    private final UnirestContext unirestContext;
+    @Getter
+    private final OffsetDateTime commitOffsetDateTime;
     private final IReportWriter reportWriter;
     private final NcdReportResultsWriters writers;
     private final NcdReportRepositoryProcessor repositoryProcessor;
-    
-    public NcdReportContext(NcdReportConfig reportConfig, IReportWriter reportWriter, IProgressWriterI18n progressWriter, UnirestContext unirestContext) {
+
+    public NcdReportContext(NcdReportConfig reportConfig, IReportWriter reportWriter,
+            IProgressWriterI18n progressWriter, UnirestContext unirestContext, OffsetDateTime commitOffsetDateTime) {
         this.reportConfig = reportConfig;
         this.progressWriter = progressWriter;
         this.unirestContext = unirestContext;
         this.reportWriter = reportWriter;
+        this.commitOffsetDateTime = commitOffsetDateTime;
         this.writers = new NcdReportResultsWriters(reportWriter, progressWriter);
         this.repositoryProcessor = new NcdReportRepositoryProcessor(reportConfig, writers, reportWriter.summary());
     }
-    
+
     /**
      * We provide public access to {@link ReportLogger}, all
      * other writers are for internal use by this class only.
+     * 
      * @return
      */
     public final IReportLogger logger() {
         return writers.logger();
     }
-    
+
     public INcdReportRepositoryProcessor repositoryProcessor() {
         return repositoryProcessor;
     }
 
-    @Override @SneakyThrows
+    @Override
+    @SneakyThrows
     public void close() {
         repositoryProcessor.writeResults();
         logger().updateSummary(reportWriter.summary());

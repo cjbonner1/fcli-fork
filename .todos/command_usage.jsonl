@@ -1,0 +1,3 @@
+{"ts":"2026-02-11T13:54:29.000908-06:00","cmd":"init","session":"ses_6872e8","ok":true,"dur_ms":59}
+{"ts":"2026-02-11T13:54:35.444987-06:00","cmd":"version","flags":{"short":"true"},"session":"ses_6872e8","ok":true,"dur_ms":0}
+{"ts":"2026-02-11T13:55:06.633503-06:00","cmd":"version","flags":{"short":"true"},"session":"ses_6872e8","ok":true,"dur_ms":0}

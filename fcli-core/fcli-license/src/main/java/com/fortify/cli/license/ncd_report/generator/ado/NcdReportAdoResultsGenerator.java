@@ -131,7 +131,7 @@ public class NcdReportAdoResultsGenerator extends AbstractNcdReportResultsGenera
     }
 
     private boolean generateCommitDataForBranches(AdoRestHelper restHelper, INcdReportRepositoryBranchCommitCollector branchCommitCollector, NcdReportAdoRepositoryDescriptor repoDescriptor, List<NcdReportAdoBranchDescriptor> branchDescriptors) {
-        String since = reportContext().reportConfig().getCommitOffsetDateTime().format(DateTimeFormatter.ISO_INSTANT);
+        String since = reportContext().commitOffsetDateTime().format(DateTimeFormatter.ISO_INSTANT);
         boolean commitsFound = false;
         for ( var branchDescriptor : branchDescriptors ) {
             reportContext().progressWriter().writeI18nProgress("fcli.license.ncd-report.loading.branch-commits", repoDescriptor.getFullName(), branchDescriptor.getName());

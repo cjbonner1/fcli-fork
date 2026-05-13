@@ -26,24 +26,31 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Top-level configuration class defining report sources and contributor settings.
+ * Top-level configuration class defining report sources and contributor
+ * settings.
  * 
  * @author rsenden
  *
  */
-@Reflectable @NoArgsConstructor 
+@Reflectable
+@NoArgsConstructor
 @Data
 public class NcdReportConfig implements IReportSourceSupplierConfig<NcdReportContext> {
     private static final DateTimePeriodHelper PERIOD_HELPER = new DateTimePeriodHelper(Period.DAYS);
     private NcdReportSourcesConfig sources;
     private Optional<NcdReportContributorConfig> contributor;
-    
+    private String commitPeriod = "90d";
+
     @Override
     public final Collection<INcdReportSourceConfig> getSourceConfigs() {
         return sources.getSourceConfigs();
     }
-    
+
+    public void setCommitPeriod(String commitPeriod) {
+        this.commitPeriod = commitPeriod;
+    }
+
     public final OffsetDateTime getCommitOffsetDateTime() {
-        return PERIOD_HELPER.getCurrentOffsetDateTimeMinusPeriod("90d");
+        return PERIOD_HELPER.getCurrentOffsetDateTimeMinusPeriod(commitPeriod);
     }
 }

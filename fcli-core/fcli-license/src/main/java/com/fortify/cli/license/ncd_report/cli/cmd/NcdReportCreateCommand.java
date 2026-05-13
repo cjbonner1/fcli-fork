@@ -13,6 +13,7 @@
 package com.fortify.cli.license.ncd_report.cli.cmd;
 
 import java.io.File;
+import java.time.OffsetDateTime;
 
 import com.fortify.cli.common.output.cli.mixin.OutputHelperMixins;
 import com.fortify.cli.common.progress.helper.IProgressWriterI18n;
@@ -28,24 +29,41 @@ import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 @Command(name = OutputHelperMixins.CreateWithDetailsOutput.CMD_NAME)
-public final class NcdReportCreateCommand extends AbstractConfigurableReportGenerateCommand<NcdReportConfig, NcdReportContext> {
-    @Getter @Mixin private OutputHelperMixins.CreateWithDetailsOutput outputHelper;
-    @Mixin private UnirestContextMixin unirestContextMixin;
-    @Option(names = {"-c","--config"}, required = true, defaultValue = "NcdReportConfig.yml")
-    @Getter private File configFile;
-    
+public final class NcdReportCreateCommand
+        extends AbstractConfigurableReportGenerateCommand<NcdReportConfig, NcdReportContext> {
+    @Getter
+    @Mixin
+    private OutputHelperMixins.CreateWithDetailsOutput outputHelper;
+    @Mixin
+    private UnirestContextMixin unirestContextMixin;
+    @Option(names = { "-c", "--config" }, required = true, defaultValue = "NcdReportConfig.yml")
+    @Getter
+    private File configFile;
+    @Option(names = "--commit-period", description = "Period to look back for commits, e.g. 30d, 6m, 1y")
+    private String commitPeriod;
+    @Option(names = "--commit-since", description = "Date from which to look for commits, in yyyy-MM-dd format")
+    private String commitSince;
+
     @Override
     protected String getReportTitle() {
         return "Number of Contributing Developers (NCD) Report";
     }
-    
+
     @Override
     protected Class<NcdReportConfig> getConfigType() {
         return NcdReportConfig.class;
     }
-    
+
     @Override
-    protected NcdReportContext createReportContext(NcdReportConfig config, IReportWriter reportWriter, IProgressWriterI18n progressWriter) {
-        return new NcdReportContext(config, reportWriter, progressWriter, unirestContextMixin.getUnirestContext());
+    protected NcdReportContext createReportContext(NcdReportConfig config, IReportWriter reportWriter,
+            IProgressWriterI18n progressWriter) {
+        if (commitPeriod != null) {
+            config.setCommitPeriod(commitPeriod);
+        }
+        OffsetDateTime commitOffsetDateTime = commitSince == null
+                ? config.getCommitOffsetDateTime()
+                : OffsetDateTime.parse(commitSince + "T00:00:00.000Z");
+        return new NcdReportContext(config, reportWriter, progressWriter, unirestContextMixin.getUnirestContext(),
+                commitOffsetDateTime);
     }
 }

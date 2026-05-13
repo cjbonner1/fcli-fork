@@ -12,6 +12,7 @@
  */
 package com.fortify.cli.license.ncd_report.collector;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -32,21 +33,32 @@ import com.fortify.cli.license.ncd_report.writer.NcdReportResultsWriters;
 import lombok.SneakyThrows;
 
 /**
- * <p>This class is responsible for collecting {@link INcdReportAuthorDescriptor}
+ * <p>
+ * This class is responsible for collecting {@link INcdReportAuthorDescriptor}
  * instances, and updating the report based on the collected instances. For each
- * author passed to the {@link #reportAuthor(INcdReportAuthorDescriptor)} method,
+ * author passed to the {@link #reportAuthor(INcdReportAuthorDescriptor)}
+ * method,
  * this class will decide whether the author should be ignored or considered a
- * contributing author.</p>
+ * contributing author.
+ * </p>
  * 
- * <p>If the author is being ignored, it will be immediately written to the output CSV 
- * file, such that all ignored authors are listed first. Contributing authors are 
- * collected using {@link NcdReportAuthorDeduplicator} to identify duplicate authors, 
- * and written to the output CSV file once all authors have been collected.</p>
+ * <p>
+ * If the author is being ignored, it will be immediately written to the output
+ * CSV
+ * file, such that all ignored authors are listed first. Contributing authors
+ * are
+ * collected using {@link NcdReportAuthorDeduplicator} to identify duplicate
+ * authors,
+ * and written to the output CSV file once all authors have been collected.
+ * </p>
  * 
- * <p>During these operations, the inner {@link AuthorCounters} class is used to
- * keep track of author counts based on the states defined in the {@link AuthorCounter}
+ * <p>
+ * During these operations, the inner {@link AuthorCounters} class is used to
+ * keep track of author counts based on the states defined in the
+ * {@link AuthorCounter}
  * enumeration. Author counts are then included in the report summary once all
- * authors have been processed.</p>
+ * authors have been processed.
+ * </p>
  * 
  * @author rsenden
  *
@@ -54,12 +66,12 @@ import lombok.SneakyThrows;
 final class NcdReportAuthorCollector {
     private final NcdReportResultsWriters writers;
     private final ObjectNode summary;
-    
+
     private final Map<INcdReportAuthorDescriptor, NcdReportProcessedAuthorDescriptor> processedAuthors = new HashMap<>();
     private final NcdReportAuthorDeduplicator deduplicator;
     private final Optional<NcdReportContributorConfig> contributorConfig;
     private final AuthorCounters counters = new AuthorCounters();
-    
+
     public NcdReportAuthorCollector(NcdReportConfig reportConfig, NcdReportResultsWriters writers, ObjectNode summary) {
         this.writers = writers;
         this.summary = summary;
@@ -67,69 +79,81 @@ final class NcdReportAuthorCollector {
         this.deduplicator = new NcdReportAuthorDeduplicator(contributorConfig);
     }
 
-    NcdReportProcessedAuthorDescriptor reportAuthor(INcdReportAuthorDescriptor descriptor) {
+    NcdReportProcessedAuthorDescriptor reportAuthor(INcdReportAuthorDescriptor descriptor, LocalDateTime commitDate) {
         return processedAuthors.computeIfAbsent(descriptor, this::processAuthorDescriptor);
     }
-    
+
     private NcdReportProcessedAuthorDescriptor processAuthorDescriptor(INcdReportAuthorDescriptor authorDescriptor) {
         counters.increaseCount(AuthorCounter.total);
         var expressionInput = authorDescriptor.toExpressionInput();
-        if ( isIgnored(expressionInput) ) {
-            var result = new NcdReportProcessedAuthorDescriptor(authorDescriptor, NcdReportProcessedAuthorState.ignored, -1, expressionInput);
+        if (isIgnored(expressionInput)) {
+            var result = new NcdReportProcessedAuthorDescriptor(authorDescriptor, NcdReportProcessedAuthorState.ignored,
+                    -1, expressionInput);
             writers.authorsWriter().writeIgnoredAuthor(result);
             counters.increaseCount(AuthorCounter.ignored);
             return result;
         } else {
-            var result = new NcdReportProcessedAuthorDescriptor(authorDescriptor, NcdReportProcessedAuthorState.processed, counters.increaseCount(AuthorCounter.nonIgnored), expressionInput);
+            var result = new NcdReportProcessedAuthorDescriptor(authorDescriptor,
+                    NcdReportProcessedAuthorState.processed, counters.increaseCount(AuthorCounter.nonIgnored),
+                    expressionInput);
             deduplicator.addAuthor(result);
             return result;
         }
     }
-    
+
     private boolean isIgnored(ObjectNode expressionInput) {
         return contributorConfig
                 .flatMap(NcdReportContributorConfig::getIgnoreExpression)
-                .map(expr->JsonHelper.evaluateSpelExpression(expressionInput, expr, Boolean.class))
+                .map(expr -> JsonHelper.evaluateSpelExpression(expressionInput, expr, Boolean.class))
                 .orElse(false);
     }
-    
+
     @SneakyThrows
     final void writeResults() {
         deduplicator.getDeduplicatedAuthors().entrySet().forEach(this::writeEntry);
         summary.set("authorCount", counters.toJson());
     }
-    
-    private final void writeEntry(Entry<NcdReportProcessedAuthorDescriptor, Set<NcdReportProcessedAuthorDescriptor>> e) {
+
+    private final void writeEntry(
+            Entry<NcdReportProcessedAuthorDescriptor, Set<NcdReportProcessedAuthorDescriptor>> e) {
         var contributingAuthorNumber = counters.increaseCount(AuthorCounter.contributing);
         INcdReportAuthorsWriter writer = writers.authorsWriter();
         writer.writeContributor(e.getKey(), contributingAuthorNumber);
-        e.getValue().forEach(d->{
+        e.getValue().forEach(d -> {
             writer.writeDuplicateAuthor(d, contributingAuthorNumber);
             counters.increaseCount(AuthorCounter.duplicate);
         });
     }
-    
+
     private static enum AuthorCounter {
-        total, contributing, ignored, nonIgnored, duplicate
+        total, ignored, nonIgnored, duplicate, contributing
     }
-    
+
     private static final class AuthorCounters {
         private final Map<AuthorCounter, Integer> counts = new HashMap<>();
-        
+
         int increaseCount(AuthorCounter counter) {
             int next = getNextIndex(counter);
             counts.put(counter, next);
             return next;
         }
-        
+
         private int getNextIndex(AuthorCounter counter) {
-            return counts.getOrDefault(counter, 0)+1;
+            return counts.getOrDefault(counter, 0) + 1;
         }
-        
+
         ObjectNode toJson() {
             var node = JsonHelper.getObjectMapper().createObjectNode();
+            var countsNode = node.putObject("counts");
             Stream.of(AuthorCounter.values())
-                .forEach(v->node.put(v.name(), counts.getOrDefault(v, 0)));
+                    .forEach(v -> countsNode.put(v.name(), counts.getOrDefault(v, 0)));
+            var definitionsNode = node.putObject("definitions");
+            definitionsNode.put("total", "Total unique author identities found in analyzed commits");
+            definitionsNode.put("ignored", "Authors excluded from count based on configuration");
+            definitionsNode.put("nonIgnored", "Processed authors after applying ignore rules");
+            definitionsNode.put("duplicate", "Authors identified as duplicate identities of a contributing author");
+            definitionsNode.put("contributing",
+                    "Net count of unique contributing developers found in analyzed commits");
             return node;
         }
     }

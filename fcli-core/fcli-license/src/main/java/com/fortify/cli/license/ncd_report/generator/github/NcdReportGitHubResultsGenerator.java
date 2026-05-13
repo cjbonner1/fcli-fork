@@ -140,7 +140,7 @@ public class NcdReportGitHubResultsGenerator extends AbstractNcdReportResultsGen
      * @return true if any commits were found, false otherwise  
      */
     private boolean generateCommitDataForBranches(INcdReportRepositoryBranchCommitCollector branchCommitCollector, NcdReportGitHubRepositoryDescriptor repoDescriptor, List<NcdReportGitHubBranchDescriptor> branchDescriptors) {
-        String since = reportContext().reportConfig().getCommitOffsetDateTime()
+        String since = reportContext().commitOffsetDateTime()
                 .format(DateTimeFormatter.ISO_INSTANT);
         boolean commitsFound = false;
         for ( var branchDescriptor : branchDescriptors ) {
